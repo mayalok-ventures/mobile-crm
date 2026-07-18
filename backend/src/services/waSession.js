@@ -32,7 +32,10 @@ const disconnect = async (userId) => {
   const session = sessions[userId];
   if (session) {
     try {
-      session.logout();
+      // Safely call logout only if connection is open, catch any async errors
+      if (session.ws && session.ws.readyState === 1) {
+        await session.logout().catch(() => {});
+      }
       session.end();
     } catch (e) {}
     delete sessions[userId];

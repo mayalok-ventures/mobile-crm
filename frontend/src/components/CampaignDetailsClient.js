@@ -118,125 +118,127 @@ export default function CampaignDetailsPage() {
   const progress = campaign.totalLeads > 0 ? Math.round((campaign.lastSentIndex + 1) / campaign.totalLeads * 100) : 0;
 
   return (
-    <div className="container" style={{ paddingBottom: 80 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <Link href="/campaigns" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-          <ArrowLeft size={20} />
-        </Link>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Campaigns / Details</span>
-      </div>
-
-      <header className="header" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+    <div className="app-shell">
+      <div className="page-header" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link href="/campaigns" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+            <ArrowLeft size={18} />
+          </Link>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Campaigns / Details</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 4 }}>
           <div>
-            <h1 className="title" style={{ fontSize: 22 }}>{campaign.name}</h1>
+            <h1 className="page-title" style={{ fontSize: 20, margin: 0 }}>{campaign.name}</h1>
             <p style={{ margin: '4px 0 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
               Template: {campaign.template.length > 50 ? campaign.template.slice(0, 50) + '...' : campaign.template}
             </p>
           </div>
           <span style={{
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 700,
             padding: '4px 8px',
             borderRadius: 6,
             background: campaign.status === 'completed' ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)',
             color: campaign.status === 'completed' ? '#22c55e' : '#eab308',
-            textTransform: 'uppercase'
+            textTransform: 'uppercase',
+            letterSpacing: 0.5
           }}>
             {campaign.status}
           </span>
         </div>
-      </header>
+      </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
-          <span style={{ color: 'var(--text-muted)' }}>Overall Progress</span>
-          <strong>{campaign.lastSentIndex + 1} / {campaign.totalLeads} ({progress}%)</strong>
+      <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
+            <span style={{ color: 'var(--text-muted)' }}>Overall Progress</span>
+            <strong>{campaign.lastSentIndex + 1} / {campaign.totalLeads} ({progress}%)</strong>
+          </div>
+          <div className="progress-bar" style={{ height: 6, background: 'var(--border)' }}>
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            {['running', 'queued'].includes(campaign.status) ? (
+              <button onClick={handlePause} className="btn btn-full btn-ghost" style={{ color: 'var(--orange)', borderColor: 'rgba(249,115,22,0.2)', fontSize: 13 }}>
+                <Pause size={14} /> Pause
+              </button>
+            ) : campaign.status === 'paused' ? (
+              <button onClick={handleResume} className="btn btn-full btn-ghost" style={{ color: 'var(--green)', borderColor: 'rgba(34,197,94,0.2)', fontSize: 13 }}>
+                <Play size={14} /> Resume
+              </button>
+            ) : null}
+
+            {['running', 'queued', 'paused'].includes(campaign.status) && (
+              <button onClick={handleCancel} className="btn btn-full btn-ghost" style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,0.2)', fontSize: 13 }}>
+                <XCircle size={14} /> Cancel
+              </button>
+            )}
+          </div>
         </div>
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${progress}%` }} />
+
+        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text)' }}>Delivery Log ({totalLogs})</h3>
+          <button onClick={() => fetchLogs(page)} className="btn btn-ghost" style={{ padding: 6, height: 'auto', minHeight: 'auto' }}>
+            <RefreshCw size={13} className={logsLoading ? 'spin' : ''} />
+          </button>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          {['running', 'queued'].includes(campaign.status) ? (
-            <button onClick={handlePause} className="btn btn-full btn-ghost" style={{ color: 'var(--orange)', borderColor: 'rgba(249,115,22,0.2)' }}>
-              <Pause size={16} /> Pause
-            </button>
-          ) : campaign.status === 'paused' ? (
-            <button onClick={handleResume} className="btn btn-full btn-ghost" style={{ color: 'var(--green)', borderColor: 'rgba(34,197,94,0.2)' }}>
-              <Play size={16} /> Resume
-            </button>
-          ) : null}
-
-          {['running', 'queued', 'paused'].includes(campaign.status) && (
-            <button onClick={handleCancel} className="btn btn-full btn-ghost" style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,0.2)' }}>
-              <XCircle size={16} /> Cancel
-            </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {logs.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+              No delivery records yet.
+            </div>
+          ) : (
+            logs.map(log => (
+              <div key={log._id} className="card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{log.number}</div>
+                  {log.error && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>{log.error}</div>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <span style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    background: log.status === 'sent' ? 'rgba(34,197,94,0.1)' : log.status === 'failed' ? 'rgba(239,68,68,0.1)' : 'rgba(249,115,22,0.1)',
+                    color: log.status === 'sent' ? '#22c55e' : log.status === 'failed' ? '#ef4444' : '#f97316',
+                    textTransform: 'uppercase'
+                  }}>
+                    {log.status}
+                  </span>
+                </div>
+              </div>
+            ))
           )}
         </div>
-      </div>
 
-      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Delivery Log ({totalLogs})</h3>
-        <button onClick={() => fetchLogs(page)} className="btn btn-ghost" style={{ padding: 6, height: 'auto' }}>
-          <RefreshCw size={14} className={logsLoading ? 'spin' : ''} />
-        </button>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {logs.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)' }}>
-            No delivery records yet.
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 16 }}>
+            <button
+              disabled={page === 1}
+              onClick={() => fetchLogs(page - 1)}
+              className="btn btn-ghost btn-sm"
+              style={{ padding: '6px 12px' }}
+            >
+              Prev
+            </button>
+            <span style={{ fontSize: 12 }}>Page {page} of {totalPages}</span>
+            <button
+              disabled={page === totalPages}
+              onClick={() => fetchLogs(page + 1)}
+              className="btn btn-ghost btn-sm"
+              style={{ padding: '6px 12px' }}
+            >
+              Next
+            </button>
           </div>
-        ) : (
-          logs.map(log => (
-            <div key={log._id} className="card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{log.number}</div>
-                {log.error && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>{log.error}</div>}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <span style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: '2px 6px',
-                  borderRadius: 4,
-                  background: log.status === 'sent' ? 'rgba(34,197,94,0.1)' : log.status === 'failed' ? 'rgba(239,68,68,0.1)' : 'rgba(249,115,22,0.1)',
-                  color: log.status === 'sent' ? '#22c55e' : log.status === 'failed' ? '#ef4444' : '#f97316',
-                  textTransform: 'uppercase'
-                }}>
-                  {log.status}
-                </span>
-              </div>
-            </div>
-          ))
         )}
       </div>
-
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 16 }}>
-          <button
-            disabled={page === 1}
-            onClick={() => fetchLogs(page - 1)}
-            className="btn btn-ghost"
-            style={{ padding: '6px 12px' }}
-          >
-            Prev
-          </button>
-          <span style={{ fontSize: 13 }}>Page {page} of {totalPages}</span>
-          <button
-            disabled={page === totalPages}
-            onClick={() => fetchLogs(page + 1)}
-            className="btn btn-ghost"
-            style={{ padding: '6px 12px' }}
-          >
-            Next
-          </button>
-        </div>
-      )}
 
       <BottomNav active="campaigns" />
     </div>
