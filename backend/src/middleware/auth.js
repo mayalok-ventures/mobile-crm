@@ -30,7 +30,7 @@ const protect = async (req, res, next) => {
     // This runs on EVERY request.
     // If removed, suspended users will still access system.
     // DO NOT BYPASS THIS CHECK.
-    if (user.suspension?.isSuspended) {
+    if (user.suspension?.isSuspended && !user.isAdmin) {
       const until = user.suspension.suspendedUntil;
       if (until && new Date() > new Date(until)) {
         await User.findByIdAndUpdate(user._id, {

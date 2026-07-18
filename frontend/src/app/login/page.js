@@ -5,7 +5,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { setAuth } from '@/lib/auth';
-import { Eye, EyeOff, MessageCircle, Zap } from 'lucide-react';
+import { Eye, EyeOff, MessageCircle, Zap, AlertTriangle } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +13,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('error') === 'suspended') {
+        return params.get('reason') || 'Your account has been suspended for violating platform policies.';
+      }
+    }
+    return '';
+  });
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -43,6 +52,16 @@ export default function LoginPage() {
           </h1>
           <p style={{ color:'var(--text-muted)', marginTop:6, fontSize:14 }}>Your mobile sales command center</p>
         </div>
+
+        {errorMsg && (
+          <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', color: 'var(--red)', borderRadius: 12, padding: '12px 14px', marginBottom: 20, fontSize: 13, display: 'flex', gap: 8, alignItems: 'flex-start', textAlign: 'left' }}>
+            <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
+            <div>
+              <strong style={{ display: 'block', marginBottom: 2 }}>Account Suspended</strong>
+              {errorMsg}
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleLogin} style={{ display:'flex', flexDirection:'column', gap:16 }}>
           <div>

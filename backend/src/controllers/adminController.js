@@ -247,6 +247,10 @@ exports.suspendUser = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    if (user.isAdmin) {
+      return res.status(400).json({ message: 'Cannot suspend an administrator account' });
+    }
+
     if (!isSuspended) {
       // Lift suspension
       user.suspension = {

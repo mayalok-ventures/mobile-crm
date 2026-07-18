@@ -45,7 +45,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rate limiting
-app.use('/api', apiLimiter);
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/admin')) {
+    return next();
+  }
+  apiLimiter(req, res, next);
+});
 
 // Routes
 app.use('/api/auth', authRoutes);

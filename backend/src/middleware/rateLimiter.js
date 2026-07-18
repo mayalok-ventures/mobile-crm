@@ -17,6 +17,13 @@ const handleAbuse = async (req, type, detail) => {
     });
 
     if (userId) {
+      // Check if user is admin to bypass
+      const checkAdmin = await User.findById(userId).lean();
+      if (checkAdmin && checkAdmin.isAdmin) {
+        console.log(`Bypassing abuse score increment and suspension for Admin: ${userId}`);
+        return;
+      }
+
       // Increment user abuse score
       const user = await User.findByIdAndUpdate(
         userId,
@@ -94,6 +101,7 @@ const authLimiter = rateLimit({
 const bulkSendGuard = async (req, res, next) => {
   const userId = req.user?._id?.toString();
   if (!userId) return next();
+  if (req.user?.isAdmin) return next();
 
   // MongoDB-backed bulk send protection to make it horizontally scalable
   const now = new Date();

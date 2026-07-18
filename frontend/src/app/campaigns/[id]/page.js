@@ -3,7 +3,7 @@ import CampaignDetailsClient from '@/components/CampaignDetailsClient';
 export const dynamic = 'force-static';
 
 export function generateStaticParams() {
-  return [{ id: '1' }];
+  return [{ id: '[id]' }];
 }
 
 export default function Page() {
