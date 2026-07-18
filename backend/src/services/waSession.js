@@ -28,7 +28,7 @@ const getStatus = (userId) => {
   return sessionStates[userId] || { status: 'disconnected', phone: null, pairingCode: null };
 };
 
-const disconnect = async (userId) => {
+const disconnect = async (userId, clearAuth = true) => {
   const session = sessions[userId];
   if (session) {
     try {
@@ -41,11 +41,13 @@ const disconnect = async (userId) => {
     delete sessions[userId];
   }
   
-  // Clear the auth session files
-  const dir = getSessionDir(userId);
-  try {
-    fs.rmSync(dir, { recursive: true, force: true });
-  } catch (e) {}
+  if (clearAuth) {
+    // Clear the auth session files
+    const dir = getSessionDir(userId);
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch (e) {}
+  }
 
   // Pause active campaigns on disconnect
   try {
@@ -71,9 +73,9 @@ const connect = async (userId, phoneNumber) => {
     throw new Error(`Server session limit reached (${MAX_SESSIONS} active sessions). Please try again later or contact admin.`);
   }
 
-  // If already running or connected, disconnect first
+  // If already running or connected, disconnect first (DO NOT clear auth files on reconnect)
   if (sessions[userId]) {
-    await disconnect(userId);
+    await disconnect(userId, false);
   }
 
   sessionStates[userId] = { status: 'connecting', phone: cleanPhone, pairingCode: null };
