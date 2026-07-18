@@ -72,7 +72,7 @@ export default function NotificationPoller() {
             if (Notification.permission === 'granted') {
               new Notification('SalesCRM Reminder', {
                 body: latest.message,
-                icon: '/icons/icon-192x192.png'
+                icon: '/android-chrome-192x192.png'
               });
             }
 
