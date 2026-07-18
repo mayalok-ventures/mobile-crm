@@ -31,6 +31,19 @@ export default function RootLayout({ children }) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js')
+                    .then(function(reg) { console.log('ServiceWorker registered'); })
+                    .catch(function(err) { console.error('ServiceWorker registration failed', err); });
+                });
+              }
+            `
+          }}
+        />
       </head>
       <body className={inter.className}>
         {children}

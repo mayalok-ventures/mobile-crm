@@ -5,8 +5,19 @@ import api from '@/lib/api';
 import BottomNav from '@/components/BottomNav';
 import { MessageCircle, CheckCircle2, AlertCircle, RefreshCw, XCircle, Copy, HelpCircle } from 'lucide-react';
 
+const COUNTRIES = [
+  { code: 'IN', name: '🇮🇳 India (+91)', prefix: '91', digits: 10 },
+  { code: 'US', name: '🇺🇸 US/Canada (+1)', prefix: '1', digits: 10 },
+  { code: 'GB', name: '🇬🇧 United Kingdom (+44)', prefix: '44', digits: 10 },
+  { code: 'AE', name: '🇦🇪 UAE (+971)', prefix: '971', digits: 9 },
+  { code: 'SA', name: '🇸🇦 Saudi Arabia (+966)', prefix: '966', digits: 9 },
+  { code: 'OTHER', name: '🌐 Other (Custom prefix)', prefix: '', digits: null }
+];
+
 export default function WhatsAppConnectPage() {
-  const [phone, setPhone] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState('IN');
+  const [localNumber, setLocalNumber] = useState('');
+  const [customPrefix, setCustomPrefix] = useState('');
   const [loading, setLoading] = useState(false);
   const [pairingCode, setPairingCode] = useState('');
   const [status, setStatus] = useState({ status: 'disconnected', phone: null, pairingCode: null });
@@ -22,9 +33,7 @@ export default function WhatsAppConnectPage() {
         if (active) {
           setStatus(data);
           setStatusLoading(false);
-          if (data.pairingCode) {
-            setPairingCode(data.pairingCode);
-          }
+          setPairingCode(data.pairingCode || '');
         }
       } catch (err) {
         if (active) setStatusLoading(false);
@@ -42,12 +51,24 @@ export default function WhatsAppConnectPage() {
 
   const handleConnect = async (e) => {
     e.preventDefault();
-    if (!phone) return toast.error('Phone number is required');
+    
+    const country = COUNTRIES.find(c => c.code === selectedCountry);
+    const prefix = selectedCountry === 'OTHER' ? customPrefix.replace(/\D/g, '') : country.prefix;
+    
+    if (!prefix) return toast.error('Country code prefix is required');
+    if (!localNumber) return toast.error('Phone number is required');
+
+    // Indian phone validation
+    if (selectedCountry === 'IN' && localNumber.replace(/\D/g, '').length !== 10) {
+      return toast.error('Indian phone number must be exactly 10 digits');
+    }
+
+    const fullPhone = `${prefix}${localNumber.replace(/\D/g, '')}`;
 
     setLoading(true);
     setPairingCode('');
     try {
-      const { data } = await api.post('/whatsapp/connect', { phoneNumber: phone });
+      const { data } = await api.post('/whatsapp/connect', { phoneNumber: fullPhone });
       setPairingCode(data.pairingCode);
       toast.success('Pairing code requested successfully! 📲');
     } catch (err) {
@@ -67,6 +88,20 @@ export default function WhatsAppConnectPage() {
       toast.success('Disconnected successfully');
     } catch (err) {
       toast.error('Failed to disconnect');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditNumber = async () => {
+    setLoading(true);
+    try {
+      await api.post('/whatsapp/disconnect');
+      setPairingCode('');
+      setStatus({ status: 'disconnected', phone: null, pairingCode: null });
+      toast.success('Ready to edit phone number! ✏️');
+    } catch (err) {
+      toast.error('Failed to reset connection');
     } finally {
       setLoading(false);
     }
@@ -144,18 +179,71 @@ export default function WhatsAppConnectPage() {
                   {!pairingCode ? (
                     <form onSubmit={handleConnect}>
                       <div style={{ marginBottom: 16 }}>
-                        <label className="label">WhatsApp Phone Number</label>
-                        <input
-                          type="tel"
-                          placeholder="e.g. 918796475107 (with country code)"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                        <label className="label">Select Country</label>
+                        <select
+                          value={selectedCountry}
+                          onChange={(e) => {
+                            setSelectedCountry(e.target.value);
+                            setLocalNumber('');
+                          }}
                           className="input"
-                          required
+                          style={{ marginBottom: 12, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px' }}
                           disabled={loading}
-                        />
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                          Include country code without + or spaces (e.g., 91 for India, 1 for US)
+                        >
+                          {COUNTRIES.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+
+                        {selectedCountry === 'OTHER' && (
+                          <div style={{ marginBottom: 12 }}>
+                            <label className="label">Custom Country Prefix Code</label>
+                            <input
+                              type="tel"
+                              placeholder="e.g. 971"
+                              value={customPrefix}
+                              onChange={(e) => setCustomPrefix(e.target.value.replace(/\D/g, ''))}
+                              className="input"
+                              required
+                              disabled={loading}
+                            />
+                          </div>
+                        )}
+
+                        <label className="label">WhatsApp Number</label>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{
+                            padding: '10px 12px',
+                            background: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 8,
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: 'var(--text-muted)',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            +{selectedCountry === 'OTHER' ? (customPrefix || '?') : COUNTRIES.find(c => c.code === selectedCountry).prefix}
+                          </span>
+                          <input
+                            type="tel"
+                            placeholder={selectedCountry === 'IN' ? "10-digit mobile number" : "Mobile number"}
+                            value={localNumber}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              if (selectedCountry === 'IN' && val.length > 10) return;
+                              setLocalNumber(val);
+                            }}
+                            maxLength={selectedCountry === 'IN' ? 10 : 15}
+                            className="input"
+                            style={{ flex: 1 }}
+                            required
+                            disabled={loading}
+                          />
+                        </div>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, display: 'block' }}>
+                          {selectedCountry === 'IN' ? '🇮🇳 Enter exactly 10 digits without +91 or leading 0' : 'Enter mobile number without country prefix'}
                         </span>
                       </div>
 
@@ -193,11 +281,12 @@ export default function WhatsAppConnectPage() {
                       </div>
 
                       <button
-                        onClick={() => { setPairingCode(''); setPhone(''); }}
+                        onClick={handleEditNumber}
+                        disabled={loading}
                         className="btn btn-secondary btn-full btn-sm"
-                        style={{ marginTop: 16 }}
+                        style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                       >
-                        Start Over
+                        ✏️ Edit Phone Number / Start Over
                       </button>
                     </div>
                   )}
