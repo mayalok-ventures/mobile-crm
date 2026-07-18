@@ -253,8 +253,8 @@ export default function DashboardPage() {
     } catch {}
   }, []);
 
-  const fetchLeads = useCallback(async () => {
-    setLoading(true);
+  const fetchLeads = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = { page, limit: 20 };
       if (search) params.search = search;
@@ -265,11 +265,11 @@ export default function DashboardPage() {
     } catch {
       toast.error('Failed to load leads');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [search, statusFilter, page]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useEffect(() => { fetchLeads(false); }, [fetchLeads]);
 
   useEffect(() => {
     api.get('/leads/follow-ups/today').then(r => setFollowUps(r.data)).catch(() => {});
@@ -440,7 +440,7 @@ export default function DashboardPage() {
       {showAdd && (
         <AddLeadModal 
           onClose={() => setShowAdd(false)} 
-          onCreated={l => { setLeads(prev => [l, ...prev]); fetchLeads(); }} 
+          onCreated={l => { setLeads(prev => [l, ...prev]); fetchLeads(true); }} 
           onLimitReached={() => setShowUpgrade(true)}
         />
       )}

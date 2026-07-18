@@ -1,3 +1,6 @@
 /_next/* /_next/:splat 200
 /static/* /static/:splat 200
+/leads/* /leads/[id]/index.html 200
+/campaigns/* /campaigns/[id]/index.html 200
+/share/* /share/[token]/index.html 200
 /* /index.html 200

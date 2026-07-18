@@ -14,6 +14,7 @@ export default function ShareDashboardPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!token || token === '[token]' || token === 'undefined') return;
     api.get(`/share/${token}`).then(r => setData(r.data)).catch(e => setError(e.response?.data?.message || 'Invalid link')).finally(() => setLoading(false));
   }, [token]);
 

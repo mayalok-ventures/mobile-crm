@@ -332,6 +332,9 @@ export default function LeadDetailPage() {
   const [waStatus, setWaStatus] = useState({ status: 'disconnected', phone: null });
 
   useEffect(() => {
+    if (!id || id === '[id]' || id === 'undefined') return;
+
+    setLoading(true);
     // Get Lead
     api.get(`/leads/${id}`)
       .then(r => { setLead(r.data); setForm(r.data); })
