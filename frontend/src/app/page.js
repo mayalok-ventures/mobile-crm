@@ -1,30 +1,39 @@
 'use client';
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
-  const router = useRouter();
-
   useEffect(() => {
-    // Only runs on client — safe to access localStorage
+    // Native window redirect is significantly faster than Next.js router hydration on slow mobile devices
     const token = localStorage.getItem('token');
     if (token) {
-      router.replace('/dashboard');
+      window.location.replace('/dashboard');
     } else {
-      router.replace('/login');
+      window.location.replace('/login');
     }
-  }, [router]);
+  }, []);
 
-  // Render nothing during SSR / before redirect
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100dvh',
-      background: 'var(--bg)',
-    }}>
-      <div className="spinner" />
-    </div>
+    <>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            if (localStorage.getItem('token')) {
+              window.location.replace('/dashboard');
+            } else {
+              window.location.replace('/login');
+            }
+          `,
+        }}
+      />
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100dvh',
+        background: 'var(--bg)',
+      }}>
+        <div className="spinner" />
+      </div>
+    </>
   );
 }
