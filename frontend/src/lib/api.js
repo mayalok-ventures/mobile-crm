@@ -1,10 +1,16 @@
 import axios from 'axios';
 
 const getBaseUrl = () => {
+  // Production API Endpoint (Cloudflare Pages + AWS ECS Fargate + Custom Domain)
+  return 'https://api.coresetu.com/api';
+
+  /*
+  // Local development and raw ALB testing endpoints (commented out for production launch)
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   if (process.env.NODE_ENV === 'production') return 'http://crm-alb-1015746865.eu-north-1.elb.amazonaws.com/api';
   if (typeof window !== 'undefined') return `http://${window.location.hostname}:5000/api`;
   return 'http://localhost:5000/api';
+  */
 };
 
 const API_URL = getBaseUrl();
