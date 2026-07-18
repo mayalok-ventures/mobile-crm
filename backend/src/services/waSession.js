@@ -142,6 +142,16 @@ const connect = async (userId, phoneNumber) => {
       await new Promise(r => setTimeout(r, 1500));
       const code = await sock.requestPairingCode(cleanPhone);
       sessionStates[userId] = { status: 'connecting', phone: cleanPhone, pairingCode: code };
+
+      // Auto-expire pairing code after 110 seconds (WhatsApp timeout is 120s)
+      setTimeout(() => {
+        const currentState = sessionStates[userId];
+        if (currentState && currentState.pairingCode === code && currentState.status === 'connecting') {
+          console.log(`Pairing code expired for user ${userId}. Cleaning up session.`);
+          disconnect(userId).catch(console.error);
+        }
+      }, 110000);
+
       return code;
     } catch (err) {
       console.error('Failed to get pairing code:', err);
