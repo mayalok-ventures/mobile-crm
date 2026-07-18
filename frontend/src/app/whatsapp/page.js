@@ -126,131 +126,49 @@ export default function WhatsAppConnectPage() {
             </div>
           ) : (
             <div>
-              {/* Connection Status Card */}
-              <div className="card" style={{ marginBottom: 24, padding: 20, borderLeft: `4px solid ${status.status === 'connected' ? 'var(--green)' : status.status === 'connecting' ? 'var(--yellow)' : 'var(--border)'}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <MessageCircle size={24} color={status.status === 'connected' ? 'var(--green)' : 'var(--text-muted)'} />
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>Connection Status</span>
-                  </div>
-                  <span className={`badge badge-${status.status === 'connected' ? 'closed' : status.status === 'connecting' ? 'follow_up' : 'new'}`}>
-                    {status.status}
-                  </span>
-                </div>
-
-                {status.status === 'connected' ? (
-                  <div>
-                    <p style={{ margin: '0 0 16px 0', fontSize: 14, color: 'var(--text-muted)' }}>
-                      Connected to WhatsApp account: <strong style={{ color: 'var(--text)' }}>+{status.phone}</strong>
-                    </p>
-                    <button
-                      onClick={handleDisconnect}
-                      disabled={loading}
-                      className="btn btn-danger btn-full btn-sm"
-                      style={{ gap: 8 }}
-                    >
-                      <XCircle size={16} /> Disconnect WhatsApp
-                    </button>
-                  </div>
-                ) : status.status === 'connecting' ? (
-                  <div>
-                    <p style={{ margin: '0 0 16px 0', fontSize: 14, color: 'var(--text-muted)' }}>
-                      Connecting with phone number: <strong style={{ color: 'var(--text)' }}>+{status.phone}</strong>
-                    </p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(234,179,8,0.1)', padding: 12, borderRadius: 10, border: '1px solid rgba(234,179,8,0.2)', marginBottom: 16 }}>
-                      <RefreshCw className="spinner" size={16} color="var(--yellow)" />
-                      <span style={{ fontSize: 13, color: '#eab308' }}>Waiting for link confirmation from your phone...</span>
+              {/* Connected State */}
+              {status.status === 'connected' && (
+                <div className="card" style={{ marginBottom: 24, padding: 20, borderLeft: '4px solid var(--green)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <MessageCircle size={24} color="var(--green)" />
+                      <span style={{ fontSize: 16, fontWeight: 700 }}>Connection Status</span>
                     </div>
+                    <span className="badge badge-closed">Connected</span>
                   </div>
-                ) : (
-                  <div>
-                    <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>
-                      Link your WhatsApp directly without using wa.me redirects.
-                    </p>
-                  </div>
-                )}
-              </div>
+                  <p style={{ margin: '0 0 16px 0', fontSize: 14, color: 'var(--text-muted)' }}>
+                    Connected to WhatsApp account: <strong style={{ color: 'var(--text)' }}>+{status.phone}</strong>
+                  </p>
+                  <button
+                    onClick={handleDisconnect}
+                    disabled={loading}
+                    className="btn btn-danger btn-full btn-sm"
+                    style={{ gap: 8 }}
+                  >
+                    <XCircle size={16} /> Disconnect WhatsApp
+                  </button>
+                </div>
+              )}
 
-              {/* Main Connect Action */}
-              {status.status !== 'connected' && (
-                <div className="card" style={{ marginBottom: 24, padding: 20 }}>
-                  <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700 }}>Link a Device</h3>
-                  
+              {/* Connecting State */}
+              {status.status === 'connecting' && (
+                <div className="card" style={{ marginBottom: 24, padding: 20, borderLeft: '4px solid var(--yellow)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <MessageCircle size={24} color="var(--yellow)" />
+                      <span style={{ fontSize: 16, fontWeight: 700 }}>Connecting Device</span>
+                    </div>
+                    <span className="badge badge-follow_up">Connecting</span>
+                  </div>
+
                   {!pairingCode ? (
-                    <form onSubmit={handleConnect}>
-                      <div style={{ marginBottom: 16 }}>
-                        <label className="label">Select Country</label>
-                        <select
-                          value={selectedCountry}
-                          onChange={(e) => {
-                            setSelectedCountry(e.target.value);
-                            setLocalNumber('');
-                          }}
-                          className="input"
-                          style={{ marginBottom: 12, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px' }}
-                          disabled={loading}
-                        >
-                          {COUNTRIES.map((c) => (
-                            <option key={c.code} value={c.code}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
-
-                        {selectedCountry === 'OTHER' && (
-                          <div style={{ marginBottom: 12 }}>
-                            <label className="label">Custom Country Prefix Code</label>
-                            <input
-                              type="tel"
-                              placeholder="e.g. 971"
-                              value={customPrefix}
-                              onChange={(e) => setCustomPrefix(e.target.value.replace(/\D/g, ''))}
-                              className="input"
-                              required
-                              disabled={loading}
-                            />
-                          </div>
-                        )}
-
-                        <label className="label">WhatsApp Number</label>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{
-                            padding: '10px 12px',
-                            background: 'var(--surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 8,
-                            fontSize: 14,
-                            fontWeight: 600,
-                            color: 'var(--text-muted)',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            +{selectedCountry === 'OTHER' ? (customPrefix || '?') : COUNTRIES.find(c => c.code === selectedCountry).prefix}
-                          </span>
-                          <input
-                            type="tel"
-                            placeholder={selectedCountry === 'IN' ? "10-digit mobile number" : "Mobile number"}
-                            value={localNumber}
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/\D/g, '');
-                              if (selectedCountry === 'IN' && val.length > 10) return;
-                              setLocalNumber(val);
-                            }}
-                            maxLength={selectedCountry === 'IN' ? 10 : 15}
-                            className="input"
-                            style={{ flex: 1 }}
-                            required
-                            disabled={loading}
-                          />
-                        </div>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, display: 'block' }}>
-                          {selectedCountry === 'IN' ? '🇮🇳 Enter exactly 10 digits without +91 or leading 0' : 'Enter mobile number without country prefix'}
-                        </span>
-                      </div>
-
-                      <button type="submit" disabled={loading} className="btn btn-primary btn-full">
-                        {loading ? <RefreshCw className="spinner" size={18} /> : 'Generate Pairing Code'}
-                      </button>
-                    </form>
+                    <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                      <RefreshCw className="spinner" size={32} color="var(--yellow)" style={{ marginBottom: 12, display: 'inline-block' }} />
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Generating Pairing Code...</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                        Requesting secure credentials for +{status.phone}
+                      </p>
+                    </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '10px 0' }}>
                       <p style={{ margin: '0 0 8px 0', fontSize: 13, color: 'var(--text-muted)' }}>
@@ -264,6 +182,16 @@ export default function WhatsAppConnectPage() {
                         <button onClick={copyCode} className="btn btn-ghost btn-sm" style={{ padding: 8, minHeight: 'auto' }}>
                           <Copy size={16} />
                         </button>
+                      </div>
+
+                      <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 12, padding: 12, textAlign: 'left', marginBottom: 16 }}>
+                        <h4 style={{ margin: '0 0 6px 0', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--red)' }}>
+                          <AlertCircle size={15} />
+                          WhatsApp Security Notice:
+                        </h4>
+                        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                          WhatsApp might display a warning saying <strong>&quot;This may be a scam&quot;</strong> when pairing. This is a standard safety prompt shown by WhatsApp for all custom server linkages. Since this is your official CRM workspace, it is safe to proceed.
+                        </p>
                       </div>
 
                       <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, textAlign: 'left', marginTop: 12 }}>
@@ -292,8 +220,93 @@ export default function WhatsAppConnectPage() {
                   )}
                 </div>
               )}
-              
-              {/* WhatsApp features alert */}
+
+              {/* Disconnected State */}
+              {status.status === 'disconnected' && (
+                <div className="card" style={{ marginBottom: 24, padding: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                    <MessageCircle size={24} color="var(--text-muted)" />
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>Link WhatsApp Account</span>
+                  </div>
+                  
+                  <form onSubmit={handleConnect}>
+                    <div style={{ marginBottom: 16 }}>
+                      <label className="label">Select Country</label>
+                      <select
+                        value={selectedCountry}
+                        onChange={(e) => {
+                          setSelectedCountry(e.target.value);
+                          setLocalNumber('');
+                        }}
+                        className="input"
+                        style={{ marginBottom: 12, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px' }}
+                        disabled={loading}
+                      >
+                        {COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedCountry === 'OTHER' && (
+                        <div style={{ marginBottom: 12 }}>
+                          <label className="label">Custom Country Prefix Code</label>
+                          <input
+                            type="tel"
+                            placeholder="e.g. 971"
+                            value={customPrefix}
+                            onChange={(e) => setCustomPrefix(e.target.value.replace(/\D/g, ''))}
+                            className="input"
+                            required
+                            disabled={loading}
+                          />
+                        </div>
+                      )}
+
+                      <label className="label">WhatsApp Number</label>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{
+                          padding: '10px 12px',
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: 'var(--text-muted)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          +{selectedCountry === 'OTHER' ? (customPrefix || '?') : COUNTRIES.find(c => c.code === selectedCountry).prefix}
+                        </span>
+                        <input
+                          type="tel"
+                          placeholder={selectedCountry === 'IN' ? "10-digit mobile number" : "Mobile number"}
+                          value={localNumber}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            if (selectedCountry === 'IN' && val.length > 10) return;
+                            setLocalNumber(val);
+                          }}
+                          maxLength={selectedCountry === 'IN' ? 10 : 15}
+                          className="input"
+                          style={{ flex: 1 }}
+                          required
+                          disabled={loading}
+                        />
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, display: 'block' }}>
+                        {selectedCountry === 'IN' ? '🇮🇳 Enter exactly 10 digits without +91 or leading 0' : 'Enter mobile number without country prefix'}
+                      </span>
+                    </div>
+
+                    <button type="submit" disabled={loading} className="btn btn-primary btn-full">
+                      {loading ? <RefreshCw className="spinner" size={18} style={{ display: 'inline-block' }} /> : 'Generate Pairing Code'}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* Info Card */}
               <div style={{ padding: 16, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: 12, display: 'flex', gap: 12 }}>
                 <CheckCircle2 size={20} color="var(--green)" style={{ flexShrink: 0, marginTop: 2 }} />
                 <div>
