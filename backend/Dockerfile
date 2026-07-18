@@ -1,7 +1,7 @@
-FROM node:18-alpine
+FROM node:20-slim
 
-# Install build dependencies for native modules (sharp, etc.)
-RUN apk add --no-cache python3 make g++ gcc libtool autoconf automake bash vips-dev
+# Install system dependencies
+RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

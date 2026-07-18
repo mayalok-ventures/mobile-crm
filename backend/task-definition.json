@@ -1,0 +1,76 @@
+{
+  "family": "crm-backend-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::034237695834:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::034237695834:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "crm-backend",
+      "image": "034237695834.dkr.ecr.eu-north-1.amazonaws.com/crm-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 5000,
+          "hostPort": 5000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "5000"
+        },
+        {
+          "name": "MONGO_URI",
+          "value": "mongodb+srv://mayalokventures:Mflica2026kps@cluster0.j988j68.mongodb.net/?appName=Cluster0"
+        },
+        {
+          "name": "CLOUDINARY_URL",
+          "value": "cloudinary://152963426451515:xzxWxION8S3tfBtJE7a4L07KzLo@dm3wxhsj1"
+        },
+        {
+          "name": "JWT_SECRET",
+          "value": "super_secure_random_string"
+        },
+        {
+          "name": "JWT_EXPIRE",
+          "value": "30d"
+        },
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "MAX_WA_SESSIONS",
+          "value": "15"
+        },
+        {
+          "name": "ADMIN_EMAIL",
+          "value": "admin@yourapp.com"
+        },
+        {
+          "name": "ADMIN_PASSWORD",
+          "value": "Admin@123"
+        },
+        {
+          "name": "WA_BUSINESS_NUMBER",
+          "value": "918796475107"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-create-group": "true",
+          "awslogs-group": "/ecs/crm-backend-task",
+          "awslogs-region": "eu-north-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
