@@ -86,6 +86,9 @@ const connect = async (userId, phoneNumber) => {
   const sock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
+    // Identify as Chrome to avoid WhatsApp flagging the connection as unknown (causes "Connecting..." loop)
+    browser: ['CRM System', 'Chrome', '120.0.0'],
+    connectTimeoutMs: 30000,
   });
 
   sessions[userId] = sock;
@@ -143,9 +146,37 @@ const connect = async (userId, phoneNumber) => {
   // Request pairing code if not registered
   if (!sock.authState.creds.registered) {
     try {
-      // Delay slightly to allow socket connection
-      await new Promise(r => setTimeout(r, 1500));
-      const code = await sock.requestPairingCode(cleanPhone);
+      const code = await new Promise((resolve, reject) => {
+        let requested = false;
+
+        // Timeout: give the socket up to 15 seconds to be ready
+        const timeout = setTimeout(() => {
+          if (!requested) reject(new Error('Timed out waiting for socket to be ready for pairing'));
+        }, 15000);
+
+        const tryRequest = async () => {
+          if (requested) return;
+          requested = true;
+          clearTimeout(timeout);
+          try {
+            const pairingCode = await sock.requestPairingCode(cleanPhone);
+            resolve(pairingCode);
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        // Baileys fires a 'qr' update when the WS handshake completes and pairing is ready
+        sock.ev.on('connection.update', (update) => {
+          if (update.qr && !requested) {
+            tryRequest();
+          }
+        });
+
+        // Fallback: attempt after 3 seconds (socket usually connects in <2s on good networks)
+        setTimeout(() => tryRequest(), 3000);
+      });
+
       sessionStates[userId] = { status: 'connecting', phone: cleanPhone, pairingCode: code };
 
       // Auto-expire pairing code after 110 seconds (WhatsApp timeout is 120s)
