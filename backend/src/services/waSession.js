@@ -9,6 +9,9 @@ const sessions = {};
 const sessionStates = {};
 // Track reconnect attempts to prevent infinite loops
 const reconnectAttempts = {};
+// Track which users are actively in the pairing window (waiting for user to enter code)
+// Reconnect MUST NOT fire during this window or it kills the pairing code
+const pairingInProgress = {};
 
 // MAX_SESSIONS: Hard cap on concurrent Baileys connections.
 // Each socket consumes 10–50MB RAM. At 15 sessions = up to 750MB.
@@ -29,6 +32,9 @@ const getStatus = (userId) => {
 };
 
 const disconnect = async (userId, clearAuth = true) => {
+  // Clear pairing flag on explicit disconnect
+  delete pairingInProgress[userId];
+
   const session = sessions[userId];
   if (session) {
     try {
@@ -73,12 +79,14 @@ const connect = async (userId, phoneNumber) => {
     throw new Error(`Server session limit reached (${MAX_SESSIONS} active sessions). Please try again later or contact admin.`);
   }
 
-  // If already running or connected, disconnect first (DO NOT clear auth files on reconnect)
+  // If already running or connected, disconnect first.
+  // Clear auth when user explicitly calls connect (fresh pairing attempt).
   if (sessions[userId]) {
-    await disconnect(userId, false);
+    await disconnect(userId, true);
   }
 
   sessionStates[userId] = { status: 'connecting', phone: cleanPhone, pairingCode: null };
+  pairingInProgress[userId] = false; // not yet in pairing window
 
   const authDir = getSessionDir(userId);
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
@@ -86,8 +94,8 @@ const connect = async (userId, phoneNumber) => {
   const sock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
-    // Identify as Chrome to avoid WhatsApp flagging the connection as unknown (causes "Connecting..." loop)
-    browser: ['CRM System', 'Chrome', '120.0.0'],
+    // Standard browser fingerprint — do NOT use custom names, WhatsApp validates these
+    browser: ['Ubuntu', 'Chrome', '120.0.0'],
     connectTimeoutMs: 30000,
   });
 
@@ -99,9 +107,20 @@ const connect = async (userId, phoneNumber) => {
     const { connection, lastDisconnect } = update;
     
     if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log(`Connection closed for user ${userId}. Reconnecting? ${shouldReconnect}`);
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      console.log(`[WA] Connection closed for user ${userId}. Status: ${statusCode}. Reconnecting? ${shouldReconnect}`);
       
+      // ─── CRITICAL: Do NOT reconnect while pairing code is active ───────────
+      // If the socket closes during the pairing window, a reconnect would start
+      // a brand-new session and invalidate the code the user is trying to enter.
+      // WhatsApp then shows "couldn't link device". Let the pairing expire naturally.
+      if (pairingInProgress[userId]) {
+        console.log(`[WA] Suppressing reconnect for user ${userId} — pairing code is active. Waiting for user to enter code.`);
+        return;
+      }
+      // ────────────────────────────────────────────────────────────────────────
+
       // Safely pause active campaigns on close
       try {
         const mongoose = require('mongoose');
@@ -123,12 +142,13 @@ const connect = async (userId, phoneNumber) => {
         const attempts = (reconnectAttempts[userId] || 0) + 1;
         reconnectAttempts[userId] = attempts;
         if (attempts > 5) {
-          console.error(`WhatsApp reconnect attempts exceeded limit (5) for user ${userId}. Disconnecting.`);
+          console.error(`[WA] Reconnect attempts exceeded limit (5) for user ${userId}. Disconnecting.`);
           disconnect(userId).catch(console.error);
         } else {
-          console.log(`Scheduling reconnect attempt ${attempts}/5 for user ${userId} in 5s...`);
+          console.log(`[WA] Scheduling reconnect attempt ${attempts}/5 for user ${userId} in 5s...`);
           setTimeout(() => {
-            if (!sessions[userId] || getStatus(userId).status !== 'connected') {
+            // Double-check we're not in pairing window and not already connected
+            if (!pairingInProgress[userId] && (!sessions[userId] || getStatus(userId).status !== 'connected')) {
               connect(userId, cleanPhone).catch(console.error);
             }
           }, 5000);
@@ -137,8 +157,9 @@ const connect = async (userId, phoneNumber) => {
         disconnect(userId).catch(console.error);
       }
     } else if (connection === 'open') {
-      console.log(`WhatsApp connection opened for user ${userId}`);
+      console.log(`[WA] Connection opened for user ${userId}`);
       sessionStates[userId] = { status: 'connected', phone: cleanPhone, pairingCode: null };
+      pairingInProgress[userId] = false; // successfully connected, clear pairing flag
       reconnectAttempts[userId] = 0; // Reset attempts on successful connection
     }
   });
@@ -146,13 +167,16 @@ const connect = async (userId, phoneNumber) => {
   // Request pairing code if not registered
   if (!sock.authState.creds.registered) {
     try {
+      // Wait for the socket to reach a ready state before requesting pairing code.
+      // Baileys signals this via the 'qr' update (the server is ready for auth).
+      // We also have a 5s fallback in case the qr event doesn't fire first.
       const code = await new Promise((resolve, reject) => {
         let requested = false;
 
-        // Timeout: give the socket up to 15 seconds to be ready
+        // Safety timeout — give the socket up to 20 seconds to be ready
         const timeout = setTimeout(() => {
-          if (!requested) reject(new Error('Timed out waiting for socket to be ready for pairing'));
-        }, 15000);
+          if (!requested) reject(new Error('Timed out waiting for WhatsApp server to respond'));
+        }, 20000);
 
         const tryRequest = async () => {
           if (requested) return;
@@ -166,31 +190,40 @@ const connect = async (userId, phoneNumber) => {
           }
         };
 
-        // Baileys fires a 'qr' update when the WS handshake completes and pairing is ready
+        // Baileys fires 'qr' when the WS handshake is done and pairing is ready
         sock.ev.on('connection.update', (update) => {
           if (update.qr && !requested) {
             tryRequest();
           }
         });
 
-        // Fallback: attempt after 3 seconds (socket usually connects in <2s on good networks)
-        setTimeout(() => tryRequest(), 3000);
+        // Fallback: attempt after 5 seconds (socket usually connects in <2s)
+        setTimeout(() => tryRequest(), 5000);
       });
 
+      // ── Mark pairing as active ──────────────────────────────────────────────
+      // This flag tells the reconnect handler to NOT restart the socket while
+      // the user is entering the code in their WhatsApp app.
+      pairingInProgress[userId] = true;
+      // ────────────────────────────────────────────────────────────────────────
+
       sessionStates[userId] = { status: 'connecting', phone: cleanPhone, pairingCode: code };
+      console.log(`[WA] Pairing code generated for user ${userId}. Code: ${code}`);
 
       // Auto-expire pairing code after 110 seconds (WhatsApp timeout is 120s)
       setTimeout(() => {
         const currentState = sessionStates[userId];
         if (currentState && currentState.pairingCode === code && currentState.status === 'connecting') {
-          console.log(`Pairing code expired for user ${userId}. Cleaning up session.`);
+          console.log(`[WA] Pairing code expired for user ${userId}. Cleaning up session.`);
+          pairingInProgress[userId] = false;
           disconnect(userId).catch(console.error);
         }
       }, 110000);
 
       return code;
     } catch (err) {
-      console.error('Failed to get pairing code:', err);
+      console.error('[WA] Failed to get pairing code:', err);
+      pairingInProgress[userId] = false;
       sessionStates[userId] = { status: 'disconnected', phone: null, pairingCode: null };
       throw new Error('Failed to generate pairing code. Please try again.');
     }
@@ -214,7 +247,7 @@ const initSessions = async () => {
         const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
         const phone = creds.me?.id?.split(':')[0];
         if (phone) {
-          console.log(`Restoring WhatsApp session for user ${userId} (${phone})`);
+          console.log(`[WA] Restoring session for user ${userId} (${phone})`);
           await connect(userId, phone);
           consecutiveFailures = 0; // Reset on success
         }
@@ -222,10 +255,10 @@ const initSessions = async () => {
       // Non-blocking delay of 1s between connections to avoid server spikes
       await new Promise(r => setTimeout(r, 1000));
     } catch (e) {
-      console.error(`Failed to restore session for ${userId}:`, e);
+      console.error(`[WA] Failed to restore session for ${userId}:`, e);
       consecutiveFailures++;
       if (consecutiveFailures >= 3) {
-        console.error(`[waSession] Too many consecutive session restore failures (${consecutiveFailures}). Aborting remaining restores.`);
+        console.error(`[WA] Too many consecutive session restore failures (${consecutiveFailures}). Aborting.`);
         break;
       }
     }
@@ -274,10 +307,10 @@ const sendFromAnyActiveSession = async (to, text) => {
     if (state.status === 'connected' && sessions[userId]) {
       try {
         await sendText(userId, to, text);
-        console.log(`[waSession] Notification sent to ${to} from user session ${userId}`);
+        console.log(`[WA] Notification sent to ${to} from user session ${userId}`);
         return true;
       } catch (e) {
-        console.warn(`[waSession] Failed to send from active session of user ${userId}:`, e);
+        console.warn(`[WA] Failed to send from active session of user ${userId}:`, e);
       }
     }
   }
