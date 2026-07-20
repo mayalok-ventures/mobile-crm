@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import api from '@/lib/api';
 
 const WA_NUMBER = process.env.NEXT_PUBLIC_WA_NUMBER || '918796475107';
-const UPI_ID = process.env.NEXT_PUBLIC_UPI_ID || '918796475107@upi';
+const UPI_ID = process.env.NEXT_PUBLIC_UPI_ID || '8193948870-2@ybl';
 const CRM_NAME = 'SalesCRM';
 
 const PLANS = [
