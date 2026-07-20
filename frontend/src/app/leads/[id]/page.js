@@ -7,7 +7,7 @@ import LeadsDetailClient from '@/components/LeadsDetailClient';
 export const dynamic = 'force-static';
 
 export function generateStaticParams() {
-  return [{ id: '[id]' }];
+  return [{ id: 'placeholder' }];
 }
 
 export default function Page() {

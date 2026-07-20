@@ -47,7 +47,7 @@ export default function CampaignDetailsPage() {
   };
 
   useEffect(() => {
-    if (campaignId && campaignId !== '[id]' && campaignId !== 'undefined') {
+    if (campaignId && campaignId !== '[id]' && campaignId !== 'placeholder' && campaignId !== 'undefined') {
       fetchCampaign();
       fetchLogs(1);
     }

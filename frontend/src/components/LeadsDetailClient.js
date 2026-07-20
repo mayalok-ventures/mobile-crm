@@ -332,7 +332,7 @@ export default function LeadDetailPage() {
   const [waStatus, setWaStatus] = useState({ status: 'disconnected', phone: null });
 
   useEffect(() => {
-    if (!id || id === '[id]' || id === 'undefined') return;
+    if (!id || id === '[id]' || id === 'placeholder' || id === 'undefined') return;
 
     setLoading(true);
     // Get Lead
