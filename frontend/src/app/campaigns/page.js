@@ -19,7 +19,8 @@ export default function CampaignsPage() {
 
   useEffect(() => {
     fetchCampaigns();
-    const interval = setInterval(fetchCampaigns, 5000);
+    // Poll every 10s — campaign status changes are not real-time critical
+    const interval = setInterval(fetchCampaigns, 10000);
     return () => clearInterval(interval);
   }, []);
 

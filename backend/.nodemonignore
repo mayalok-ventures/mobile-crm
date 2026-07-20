@@ -1,0 +1,10 @@
+# Baileys writes auth key files here continuously during active sessions.
+# Without ignoring this directory, every file write triggers a nodemon restart
+# which kills the WhatsApp socket mid-session and breaks pairing/messaging.
+uploads/wa-sessions/**
+
+# Also ignore other upload dirs — changes there are never source code changes
+uploads/**
+
+# Ignore logs
+*.log

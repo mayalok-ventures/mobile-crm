@@ -41,7 +41,8 @@ export default function WhatsAppConnectPage() {
     };
 
     checkStatus();
-    const interval = setInterval(checkStatus, 3000);
+    // Poll every 8s — frequent enough to catch status changes without hitting rate limits (429)
+    const interval = setInterval(checkStatus, 8000);
 
     return () => {
       active = false;
@@ -65,18 +66,44 @@ export default function WhatsAppConnectPage() {
 
     const fullPhone = `${prefix}${localNumber.replace(/\D/g, '')}`;
 
+    const attemptConnect = async (isRetry = false) => {
+      try {
+        const { data } = await api.post('/whatsapp/connect', { phoneNumber: fullPhone });
+        setPairingCode(data.pairingCode);
+        toast.success('Pairing code ready! Enter it in WhatsApp 📲');
+        return true;
+      } catch (err) {
+        const isNetworkError = !err.response; // no HTTP response = connection reset / server down
+        const isHttpError = !!err.response;   // got a real HTTP response
+
+        if (isNetworkError && !isRetry) {
+          // First attempt failed with network error — wait 2.5s and retry once.
+          // This handles the case where the server was momentarily restarting.
+          toast.loading('Connection interrupted. Retrying in 2 seconds...', { id: 'wa-retry', duration: 3000 });
+          await new Promise(r => setTimeout(r, 2500));
+          toast.dismiss('wa-retry');
+          return await attemptConnect(true); // single retry
+        }
+
+        // Final failure — show helpful message based on error type
+        if (isNetworkError) {
+          toast.error('Cannot reach server. Check your connection and try again.');
+        } else {
+          toast.error(err.response?.data?.message || 'Failed to generate pairing code');
+        }
+        return false;
+      }
+    };
+
     setLoading(true);
     setPairingCode('');
     try {
-      const { data } = await api.post('/whatsapp/connect', { phoneNumber: fullPhone });
-      setPairingCode(data.pairingCode);
-      toast.success('Pairing code requested successfully! 📲');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to generate pairing code');
+      await attemptConnect();
     } finally {
-      setLoading(false);
+      setLoading(false); // always re-enable button so user can retry manually
     }
   };
+
 
   const handleDisconnect = async () => {
     if (!confirm('Are you sure you want to disconnect your WhatsApp?')) return;

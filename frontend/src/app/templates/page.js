@@ -1,9 +1,9 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
-import api from '@/lib/api';
+import api, { uploadApi } from '@/lib/api';
 import BottomNav from '@/components/BottomNav';
-import { Plus, Trash2, Edit2, X, FileText, Image as ImageIcon, Video as VideoIcon, File as FileIcon, Zap, Paperclip } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, FileText, Image as ImageIcon, Video as VideoIcon, File as FileIcon, Zap, Paperclip, Upload } from 'lucide-react';
 
 const TEMPLATE_PRESETS = [
   { title: 'Quick Introduction', text: 'Hi {name}! 👋\n\nI wanted to reach out and introduce myself. I work with businesses like {company} to help them grow.\n\nWould you be open to a quick 10-minute chat? 😊' },
@@ -54,6 +54,7 @@ function TemplateModal({ template, onClose, onSaved }) {
     e.preventDefault();
     if (!title || !text) return toast.error('Title and message text are required');
 
+    const hasMedia = imageFile || videoFile || docFile;
     setLoading(true);
     const formData = new FormData();
     formData.append('title', title);
@@ -70,22 +71,38 @@ function TemplateModal({ template, onClose, onSaved }) {
       formData.append('removeDoc', removeDoc);
     }
 
+    // Show a persistent toast for uploads so the user knows it's working in background
+    let uploadToastId;
+    if (hasMedia) {
+      uploadToastId = toast.loading('Uploading media... this may take a moment ⏳', { duration: 120000 });
+    }
+
     try {
+      // Use uploadApi (120s timeout) for multipart requests with media files
+      // Use regular api (20s timeout) for text-only templates
+      const client = hasMedia ? uploadApi : api;
       let data;
       if (isEdit) {
-        ({ data } = await api.put(`/templates/${template._id}`, formData, {
+        ({ data } = await client.put(`/templates/${template._id}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         }));
       } else {
-        ({ data } = await api.post('/templates', formData, {
+        ({ data } = await client.post('/templates', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         }));
       }
+      if (uploadToastId) toast.dismiss(uploadToastId);
       onSaved(data, isEdit);
-      toast.success(isEdit ? 'Template updated' : 'Template created ✅');
+      toast.success(isEdit ? 'Template updated ✅' : 'Template created ✅');
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save');
+      if (uploadToastId) toast.dismiss(uploadToastId);
+      const msg = err.response?.data?.message || err.message || 'Failed to save';
+      if (err.code === 'ECONNABORTED') {
+        toast.error('Upload timed out. Please try a smaller file or check your connection.');
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }

@@ -1,0 +1,14 @@
+{
+  "watch": ["src", "server.js"],
+  "ext": "js,json",
+  "ignore": [
+    "uploads/**",
+    "uploads/wa-sessions/**",
+    "node_modules/**",
+    "*.log",
+    ".git/**"
+  ],
+  "delay": 500,
+  "verbose": false,
+  "signal": "SIGTERM"
+}

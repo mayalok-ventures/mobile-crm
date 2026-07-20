@@ -74,13 +74,16 @@ const handleAbuse = async (req, type, detail) => {
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 400,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests, please try again later.' },
   handler: async (req, res, next, options) => {
-    // Record rate limit violation
-    await handleAbuse(req, 'too_many_requests', 'API rate limit exceeded');
+    // Skip abuse logging for read-only status polling endpoints — these are not abuse
+    const isStatusCheck = req.path === '/whatsapp/status' || req.path === '/campaigns' || req.path === '/analytics';
+    if (!isStatusCheck) {
+      await handleAbuse(req, 'too_many_requests', 'API rate limit exceeded');
+    }
     res.status(options.statusCode).send(options.message);
   }
 });

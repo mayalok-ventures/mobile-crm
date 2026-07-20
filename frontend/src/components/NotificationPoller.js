@@ -8,6 +8,7 @@ export default function NotificationPoller() {
   const router = useRouter();
   const lastSeenIdRef = useRef(null);
   const isFetchingRef = useRef(false);
+  const timerRef = useRef(null);
 
   // Play synthesized crisp notification tone (D5 then A5 notes) using Web Audio API oscillators
   const playAlertSound = () => {
@@ -51,6 +52,8 @@ export default function NotificationPoller() {
 
   useEffect(() => {
     // Only check if logged in
+    let backoffMs = 0; // extra delay added after 429/network errors
+
     const checkNotifications = async () => {
       const token = localStorage.getItem('token');
       if (!token || isFetchingRef.current) return;
@@ -58,6 +61,7 @@ export default function NotificationPoller() {
       isFetchingRef.current = true;
       try {
         const { data } = await api.get('/notifications');
+        backoffMs = 0; // reset backoff on success
         const notifications = data.notifications || [];
         
         if (notifications.length > 0) {
@@ -95,7 +99,16 @@ export default function NotificationPoller() {
           lastSeenIdRef.current = latest._id;
         }
       } catch (err) {
-        console.error('Notification poller check failed:', err);
+        if (err.response?.status === 429) {
+          // Rate limited — back off exponentially, max 2 minutes
+          backoffMs = Math.min((backoffMs || 15000) * 2, 120000);
+        } else if (!err.response) {
+          // Network error (server restarting, offline) — don't log, just wait
+        } else if (err.response?.status === 401) {
+          // Not logged in — stop polling silently
+        } else {
+          console.error('Notification poller check failed:', err);
+        }
       } finally {
         isFetchingRef.current = false;
       }
@@ -104,9 +117,17 @@ export default function NotificationPoller() {
     // Initialize first seen ID on mount/login
     checkNotifications();
 
-    // Poll every 15 seconds
-    const interval = setInterval(checkNotifications, 15000);
-    return () => clearInterval(interval);
+    // Base interval 15s + any active backoff
+    const poll = () => {
+      const delay = 15000 + backoffMs;
+      return setTimeout(async () => {
+        await checkNotifications();
+        timerRef.current = poll(); // reschedule after completion
+      }, delay);
+    };
+
+    timerRef.current = poll();
+    return () => clearTimeout(timerRef.current);
   }, [router]);
 
   return null;

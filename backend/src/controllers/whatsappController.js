@@ -6,16 +6,57 @@ exports.connect = async (req, res) => {
     return res.status(400).json({ message: 'Phone number is required' });
   }
 
+  // Check pairing cooldown
+  const userId = req.user._id.toString();
+  if (waSession.userCooldowns && waSession.userCooldowns[userId]) {
+    const cooldownTime = waSession.userCooldowns[userId];
+    if (Date.now() < cooldownTime) {
+      console.log(`[WA] Blocking connect request for user ${userId} due to active 30-minute cooldown`);
+      return res.status(429).json({
+        success: false,
+        message: "Too many attempts. Please try again after 30 minutes."
+      });
+    } else {
+      // Cooldown expired, clean it up
+      delete waSession.userCooldowns[userId];
+    }
+  }
+
+  // Hard 35s request timeout \u2014 waSession.connect() has a 30s internal timeout,
+  // so this fires only if something goes wrong beyond the internal guard.
+  // Prevents Express from holding the connection open indefinitely on WS hangs.
+  let responded = false;
+  const reqTimeout = setTimeout(() => {
+    if (!responded) {
+      responded = true;
+      console.error(`[WA] /connect request timed out for user ${req.user._id}`);
+      res.status(504).json({ message: 'WhatsApp connection timed out. Please try again.' });
+    }
+  }, 35000);
+
   try {
     const pairingCode = await waSession.connect(req.user._id, phoneNumber);
+    if (responded) return; // timeout already fired
+    responded = true;
+    clearTimeout(reqTimeout);
+
+    // Log both userId and the code so we can debug UI issues without needing
+    // access to the client device \u2014 match the code in the log to what the user sees.
+    console.log(`[WA] Pairing code ready | user=${req.user._id} phone=${phoneNumber} code=${pairingCode}`);
+
     return res.json({
       message: 'Pairing code generated',
       pairingCode
     });
   } catch (err) {
+    if (responded) return;
+    responded = true;
+    clearTimeout(reqTimeout);
+    console.error(`[WA] connect() error for user ${req.user._id}:`, err.message);
     return res.status(500).json({ message: err.message });
   }
 };
+
 
 exports.getStatus = async (req, res) => {
   try {

@@ -56,10 +56,11 @@ export default function CampaignDetailsPage() {
   // Poll progress when running or queued
   useEffect(() => {
     if (!campaign || !['running', 'queued'].includes(campaign.status)) return;
+    // Poll every 8s while running — fast enough for progress updates, avoids 429
     const interval = setInterval(() => {
       fetchCampaign();
       fetchLogs(page);
-    }, 4000);
+    }, 8000);
     return () => clearInterval(interval);
   }, [campaign?.status, page]);
 
